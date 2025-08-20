@@ -14,9 +14,9 @@ func main() {
 	fmt.Println(str, err)
 }
 
-var ErrInvalidString = errors.New("invalid str: contains only digits or incorrect format")
-
 func unpackString(input string) (string, error) {
+
+	errInvalidString := errors.New("invalid str: contains only digits or incorrect format")
 	if input == "" {
 		return input, nil
 	}
@@ -28,7 +28,7 @@ func unpackString(input string) (string, error) {
 
 		if r == '\\' {
 			if i+1 >= len(runes) {
-				return "", ErrInvalidString
+				return "", errInvalidString
 			}
 			char := runes[i+1]
 			i++
@@ -41,7 +41,7 @@ func unpackString(input string) (string, error) {
 				}
 				num, err := strconv.Atoi(digitStr)
 				if err != nil {
-					return "", ErrInvalidString
+					return "", errInvalidString
 				}
 				count = num
 			}
@@ -52,7 +52,7 @@ func unpackString(input string) (string, error) {
 		}
 
 		if unicode.IsDigit(r) {
-			return "", ErrInvalidString
+			return "", errInvalidString
 		}
 
 		char := r
@@ -65,7 +65,7 @@ func unpackString(input string) (string, error) {
 			}
 			num, err := strconv.Atoi(digitStr)
 			if err != nil {
-				return "", ErrInvalidString
+				return "", errInvalidString
 			}
 			count = num
 		}
