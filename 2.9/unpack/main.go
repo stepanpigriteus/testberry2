@@ -15,7 +15,6 @@ func main() {
 }
 
 func unpackString(input string) (string, error) {
-
 	errInvalidString := errors.New("invalid str: contains only digits or incorrect format")
 	if input == "" {
 		return input, nil
