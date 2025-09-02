@@ -9,135 +9,134 @@ import (
 	"strings"
 )
 
-type config struct {
-	fields    []int
-	delimiter string
-	separated bool
+// Cutter - настройки утилиты cut
+type Cutter struct {
+	fields     string
+	sep        string
+	onlySep    bool
+	filePath   string
+	indexes    []int
+	rangeStart int
+	toTheEnd   bool
+}
+
+// Run запускает обработку входных
+func Run(args []string) error {
+	c := &Cutter{
+		filePath: args[len(args)-1],
+		indexes:  make([]int, 0, 8),
+	}
+
+	fs := flag.NewFlagSet("cut", flag.ContinueOnError)
+	fs.StringVar(&c.fields, "f", "", "choose columns")
+	fs.StringVar(&c.sep, "d", "\t", "separator")
+	fs.BoolVar(&c.onlySep, "s", false, "skip lines without separator")
+
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	file, err := os.Open(c.filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if err := c.prepareFields(); err != nil {
+		return err
+	}
+	return c.handle(file)
+}
+
+func (c *Cutter) prepareFields() error {
+	// перечисление через запятую
+	if strings.Contains(c.fields, ",") {
+		for _, part := range strings.Split(c.fields, ",") {
+			num, err := strconv.Atoi(part)
+			if err != nil {
+				return err
+			}
+			c.indexes = append(c.indexes, num-1)
+		}
+		return nil
+	}
+
+	if len(c.fields) == 3 && c.fields[1] == '-' {
+		from, err := strconv.Atoi(string(c.fields[0]))
+		if err != nil {
+			return err
+		}
+		to, err := strconv.Atoi(string(c.fields[2]))
+		if err != nil {
+			return err
+		}
+		for i := from; i <= to; i++ {
+			c.indexes = append(c.indexes, i-1)
+		}
+		return nil
+	}
+	if len(c.fields) == 2 {
+		if c.fields[0] == '-' {
+			n, err := strconv.Atoi(string(c.fields[1]))
+			if err != nil {
+				return err
+			}
+			for i := 1; i <= n; i++ {
+				c.indexes = append(c.indexes, i-1)
+			}
+			return nil
+		}
+		if c.fields[1] == '-' {
+			n, err := strconv.Atoi(string(c.fields[0]))
+			if err != nil {
+				return err
+			}
+			c.rangeStart = n - 1
+			c.toTheEnd = true
+			return nil
+		}
+	}
+
+	n, err := strconv.Atoi(c.fields)
+	if err != nil {
+		return err
+	}
+	c.indexes = append(c.indexes, n-1)
+	return nil
+}
+
+func (c *Cutter) handle(f *os.File) error {
+	scanner := bufio.NewScanner(f)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Split(line, c.sep)
+		if len(parts) == 1 && c.onlySep {
+			continue
+		}
+		if len(parts) == 1 {
+			fmt.Println(parts[0])
+			continue
+		}
+		if c.toTheEnd {
+			fmt.Println(strings.Join(parts[c.rangeStart:], c.sep))
+			continue
+		}
+
+		var out []string
+		for _, idx := range c.indexes {
+			if idx < len(parts) {
+				out = append(out, parts[idx])
+			}
+		}
+		fmt.Println(strings.Join(out, c.sep))
+	}
+
+	return scanner.Err()
 }
 
 func main() {
-	var fieldsStr string
-	var cfg config
-
-	flag.StringVar(&fieldsStr, "f", "", "выбор полей (колонок, например, '1,3-5')")
-	flag.StringVar(&cfg.delimiter, "d", "\t", "использовать указанный разделитель вместо табуляции")
-	flag.BoolVar(&cfg.separated, "s", false, "выводить только строки, содержащие разделитель")
-	flag.Parse()
-
-	if fieldsStr == "" {
-		fmt.Fprintln(os.Stderr, "Использование: cut -f список [-d разделитель] [-s] [файл...]")
-		fmt.Fprintln(os.Stderr, "Ошибка: флаг -f обязателен")
-		os.Exit(1)
+	if err := Run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "Ошибка:", err)
 	}
-
-	var err error
-	cfg.fields, err = parseFields(fieldsStr)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Ошибка при разборе полей: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Обработка входных данных из STDIN или файлов
-	args := flag.Args()
-	var scanners []*bufio.Scanner
-	if len(args) == 0 {
-		scanners = append(scanners, bufio.NewScanner(os.Stdin))
-	} else {
-		for _, file := range args {
-			f, err := os.Open(file)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Ошибка при открытии файла %s: %v\n", file, err)
-				continue
-			}
-			scanners = append(scanners, bufio.NewScanner(f))
-			defer f.Close()
-		}
-	}
-
-	var sb strings.Builder
-	for _, scanner := range scanners {
-		if err := processInput(scanner, &cfg, &sb); err != nil {
-			fmt.Fprintf(os.Stderr, "Ошибка при чтении данных: %v\n", err)
-			os.Exit(1)
-		}
-	}
-}
-
-func parseFields(s string) ([]int, error) {
-	var fields []int
-	seen := make(map[int]bool)
-	parts := strings.Split(s, ",")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		if strings.Contains(part, "-") {
-			rangeParts := strings.Split(part, "-")
-			if len(rangeParts) != 2 {
-				return nil, fmt.Errorf("неверный диапазон: %s", part)
-			}
-			startStr, endStr := strings.TrimSpace(rangeParts[0]), strings.TrimSpace(rangeParts[1])
-			start, err := strconv.Atoi(startStr)
-			if err != nil || start < 1 {
-				return nil, fmt.Errorf("неверное начало диапазона: %s", startStr)
-			}
-			end, err := strconv.Atoi(endStr)
-			if err != nil || end < 1 {
-				return nil, fmt.Errorf("неверный конец диапазона: %s", endStr)
-			}
-			if start > end {
-				return nil, fmt.Errorf("начало диапазона не может быть больше конца: %s", part)
-			}
-			for i := start; i <= end; i++ {
-				if !seen[i] {
-					fields = append(fields, i)
-					seen[i] = true
-				}
-			}
-		} else {
-			num, err := strconv.Atoi(part)
-			if err != nil || num < 1 {
-				return nil, fmt.Errorf("неверный номер поля: %s", part)
-			}
-			if !seen[num] {
-				fields = append(fields, num)
-				seen[num] = true
-			}
-		}
-	}
-	if len(fields) == 0 {
-		return nil, fmt.Errorf("не указано ни одного валидного поля")
-	}
-	return fields, nil
-}
-
-func processInput(scanner *bufio.Scanner, cfg *config, sb *strings.Builder) error {
-	for scanner.Scan() {
-		line := scanner.Text()
-		hasDelim := strings.Contains(line, cfg.delimiter)
-		if cfg.separated && !hasDelim {
-			continue
-		}
-
-		var lineFields []string
-		if hasDelim {
-			lineFields = strings.Split(line, cfg.delimiter)
-		} else {
-			lineFields = []string{line}
-		}
-
-		sb.Reset()
-		for i, fieldNum := range cfg.fields {
-			idx := fieldNum - 1
-			if idx < len(lineFields) {
-				sb.WriteString(lineFields[idx])
-			}
-			if i < len(cfg.fields)-1 {
-				sb.WriteString(cfg.delimiter)
-			}
-		}
-		fmt.Println(sb.String())
-	}
-	return scanner.Err()
 }
