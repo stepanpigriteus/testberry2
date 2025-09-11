@@ -1,24 +1,21 @@
 package main
 
 import (
-	"flag"
+	"bufio"
 	"fmt"
+	"minishell/parseflags"
+	"minishell/processing"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
-type Flagos struct {
-	cd   bool
-	pwd  bool
-	echo bool
-	kill bool
-	ps   bool
-}
-
 func main() {
-	var cfg Flagos
-	args := parseFlag(&cfg)
+	var cfg parseflags.Flagos
+	args := parseflags.FlagParser(&cfg)
 	fmt.Println(cfg, args)
 
 	sigs := make(chan os.Signal, 1)
@@ -32,36 +29,65 @@ func main() {
 		}
 	}()
 
+	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("> ")
-		var input string
-		_, err := fmt.Scanln(&input)
+		input, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Ошибка ввода или EOF. Завершение.")
 			break
 		}
-		fmt.Println("Введено:", input)
+
+		input = strings.TrimSpace(input)
+		if input == "" {
+			continue
+		}
+
+		tokens := strings.Fields(input)
+		cmd := tokens[0]
+
+		switch cmd {
+		case "pwd":
+			processing.Pwd()
+		case "cd":
+			processing.Cd(tokens)
+		case "exit":
+			fmt.Println("Выход.")
+			return
+		case "echo":
+			if len(tokens) > 1 {
+				fmt.Println(strings.Join(tokens[1:], " "))
+			} else {
+				fmt.Println()
+			}
+		case "ps":
+			cmd := exec.Command("ps", "-e", "-o", "pid,ppid,comm")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			err := cmd.Run()
+			if err != nil {
+				fmt.Println("Ошибка выполнения команды ps:", err)
+			}
+		case "kill":
+			if len(tokens) < 2 {
+				fmt.Println("kill: отсутствует PID")
+				break
+			}
+
+			pid, err := strconv.Atoi(tokens[1])
+			if err != nil {
+				fmt.Println("kill: некорректный PID:", tokens[1])
+				break
+			}
+
+			err = syscall.Kill(pid, syscall.SIGTERM)
+			if err != nil {
+				fmt.Println("kill: ошибка:", err)
+			} else {
+				fmt.Println("Процесс", pid, "завершён (SIGTERM)")
+			}
+		default:
+			fmt.Println("Неизвестная команда:", cmd)
+		}
 	}
-}
-
-func parseFlag(cfg *Flagos) []string {
-	flag.BoolVar(&cfg.cd, "cd", false, "смена текущей директории")
-	flag.BoolVar(&cfg.pwd, "pwd", false, "вывод текущей директории")
-	flag.BoolVar(&cfg.echo, "echo", false, "вывод аргументов")
-	flag.BoolVar(&cfg.kill, "kill", false, "послать сигнал завершения процессу с заданным PID")
-	flag.BoolVar(&cfg.ps, "ps", false, "вывести список запущенных процессов")
-	flag.Parse()
-
-	args := flag.Args()
-	return args
-}
-
-func catchSignal() {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT)
-	interrupt := make(chan bool, 1)
-
-	<-sigs
-	interrupt <- true
-	fmt.Println("\nПрерывание команды (Ctrl+C)")
 }
