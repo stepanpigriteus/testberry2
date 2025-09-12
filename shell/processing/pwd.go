@@ -12,5 +12,5 @@ func Pwd() {
 		return
 	}
 
-	fmt.Println("Текущая директория:", dir)
+	fmt.Println(dir)
 }
