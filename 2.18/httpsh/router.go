@@ -14,9 +14,9 @@ type Route struct {
 	MiddlewareLog func(http.Handler) http.Handler
 }
 
-func RegisterRoutes(mux *http.ServeMux, handlers *domain.EventHandler) {
+func RegisterRoutes(mux *http.ServeMux, handlers domain.EventHandler) {
 	routes := []Route{
-		// роуты мать его
+		{Method: http.MethodPost, Path: "/create_event", Handler: handlers.CreateEvent, MiddlewareLog: LoggerMiddleware},
 	}
 	for _, route := range routes {
 		finalHandler := applyMiddleware(route.Handler, route.MiddlewareLog)

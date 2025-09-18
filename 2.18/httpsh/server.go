@@ -39,7 +39,7 @@ func (s *Server) RunServ() error {
 	}
 
 	mux := http.NewServeMux()
-	RegisterRoutes(mux, &s.handlers)
+	RegisterRoutes(mux, s.handlers)
 	mux.Handle("/", &handleDef{})
 
 	srv := &http.Server{
