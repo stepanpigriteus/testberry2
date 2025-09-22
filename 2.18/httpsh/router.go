@@ -17,6 +17,7 @@ type Route struct {
 func RegisterRoutes(mux *http.ServeMux, handlers domain.EventHandler) {
 	routes := []Route{
 		{Method: http.MethodPost, Path: "/create_event", Handler: handlers.CreateEvent, MiddlewareLog: LoggerMiddleware},
+		{Method: http.MethodGet, Path: "/events_for_day", Handler: handlers.GetEventsForDay, MiddlewareLog: LoggerMiddleware},
 	}
 	for _, route := range routes {
 		finalHandler := applyMiddleware(route.Handler, route.MiddlewareLog)

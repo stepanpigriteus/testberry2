@@ -18,17 +18,17 @@ func NewSlogger() domain.Logger {
 }
 
 func (l *Slogger) Info(msg string, args ...interface{}) {
-	l.logger.Info(msg, args)
+	l.logger.Info(msg, args...)
 }
 
 func (l *Slogger) Error(msg string, args ...interface{}) {
-	l.logger.Error(msg, args)
+	l.logger.Error(msg, args...)
 }
 
 func (l *Slogger) Warn(msg string, args ...interface{}) {
-	l.logger.Warn(msg, args)
+	l.logger.Warn(msg, args...)
 }
 
 func (l *Slogger) Debug(msg string, args ...interface{}) {
-	l.logger.Debug(msg, args)
+	l.logger.Debug(msg, args...)
 }

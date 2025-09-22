@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -19,6 +20,16 @@ func NewMemoryStorage() *MemoryStorage {
 }
 
 func (m *MemoryStorage) CreateEvent(event domain.Event) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	fmt.Println(event.Event)
+		for _, r := range m.events[event.UserID] {
+		if r.Date == event.Date && r.Event == event.Event {
+			return fmt.Errorf("the event exists: %s", event.Event)
+		}
+	}
+	m.events[event.UserID] = append(m.events[event.UserID], event)
+	fmt.Println(m.events)
 	return nil
 }
 

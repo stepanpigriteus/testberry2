@@ -11,8 +11,8 @@ import (
 func main() {
 	logger := utils.NewSlogger()
 	storage := storage.NewMemoryStorage()
-	service := serv.NewServiceImpl(storage)
-	handlers := httpsh.NewHandlerEvent(service)
+	service := serv.NewServiceImpl(storage, logger)
+	handlers := httpsh.NewHandlerEvent(service, logger)
 	server := httpsh.NewServer("8081", logger, service, storage, handlers)
 
 	err := server.RunServ()
