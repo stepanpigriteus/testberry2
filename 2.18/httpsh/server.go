@@ -60,18 +60,17 @@ type handleDef struct{}
 func (h *handleDef) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	statusCode := http.StatusInternalServerError
-	if r.Method == "OPTIONS" {
+	statusCode := http.StatusNotFound
+	if r.Method == http.MethodOptions {
 		statusCode = http.StatusOK
 	}
 
 	w.WriteHeader(statusCode)
 	response := ErrorResponse{
-		Message: "Undefined Error, please check your method or endpoint correctness",
+		Message: "Endpoint not found or method not allowed",
 	}
 
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
 	}
 }

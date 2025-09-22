@@ -9,11 +9,12 @@ import (
 )
 
 func main() {
+	port := utils.Flagos()
 	logger := utils.NewSlogger()
 	storage := storage.NewMemoryStorage()
 	service := serv.NewServiceImpl(storage, logger)
 	handlers := httpsh.NewHandlerEvent(service, logger)
-	server := httpsh.NewServer("8081", logger, service, storage, handlers)
+	server := httpsh.NewServer(*port, logger, service, storage, handlers)
 
 	err := server.RunServ()
 	if err != nil {
